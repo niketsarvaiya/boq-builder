@@ -1,0 +1,175 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-base: #0a0b0f;
+  --color-bg-sidebar: #0f1117;
+  --color-bg-card: #161820;
+  --color-bg-card-hover: #1c1e28;
+  --color-bg-input: #1c1e28;
+  --color-bg-table-header: #0f1117;
+  --color-bg-row-alt: #13141a;
+  --color-accent: #6366f1;
+  --color-accent-hover: #4f52d8;
+  --color-border: #23253a;
+  --color-border-light: #2a2d42;
+  --color-text-primary: #f0f1f5;
+  --color-text-secondary: #8b8fa8;
+  --color-text-muted: #555870;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-sidebar);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-light);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Hide number input spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Cell inputs */
+.cell-input {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  width: 100%;
+  padding: 3px 6px;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.cell-input:focus {
+  border-color: var(--color-accent);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.cell-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Room qty cells */
+.room-cell {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  width: 100%;
+  text-align: center;
+  padding: 3px 4px;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.room-cell:focus {
+  border-color: var(--color-accent);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+/* Smooth transitions */
+.fade-in {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Table sticky columns */
+.sticky-col-1 {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: inherit;
+}
+
+.sticky-col-2 {
+  position: sticky;
+  left: 40px;
+  z-index: 10;
+  background: inherit;
+}
+
+.sticky-col-3 {
+  position: sticky;
+  left: 130px;
+  z-index: 10;
+  background: inherit;
+}
+
+/* Scope header sticky */
+.scope-header-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 11;
+}
+
+/* Total column highlight */
+.total-cell {
+  background: rgba(99, 102, 241, 0.06);
+  font-weight: 600;
+}
+
+/* Row alternation */
+tr.row-alt td {
+  background-color: var(--color-bg-row-alt);
+}
+
+/* Excluded rows */
+tr.row-excluded {
+  opacity: 0.4;
+}
+
+/* Inline editable */
+.inline-edit {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  width: 100%;
+  cursor: text;
+}
+
+.inline-edit:focus {
+  border-bottom: 1px solid var(--color-accent);
+}
