@@ -69,6 +69,7 @@ export interface LineItem {
   roomAllocations: RoomAllocation[];
   included: boolean;
   isCustom?: boolean;
+  canonicalKey?: string;
 }
 
 export interface Project {
@@ -144,21 +145,34 @@ export function parseBOQExport(json: string): Project | null {
 
 /**
  * Get all active (included) line items for a specific scope.
- * e.g. getBOQScope(project, 'Networking')
+ * Accepts a full scope name (e.g. 'Networking') or a canonical scope prefix (e.g. 'networking').
+ * e.g. getBOQScope(project, 'Networking') or getBOQScope(project, 'networking')
  */
 export function getBOQScope(project: Project, scope: string): LineItem[] {
-  return project.lineItems.filter(
-    (item) => item.included && item.scope === scope
-  );
+  return project.lineItems.filter((item) => {
+    if (!item.included) return false;
+    if (item.scope === scope) return true;
+    // Match by canonical scope prefix
+    if (item.canonicalKey) {
+      const prefix = item.canonicalKey.split('.')[0];
+      if (prefix === scope.toLowerCase()) return true;
+    }
+    return false;
+  });
 }
 
 /**
  * Get total quantity of a specific product across all rooms.
+ * Matches on canonicalKey first (exact), then falls back to product name (case-insensitive).
+ * e.g. getProductTotal(project, 'networking.access-point') → 6
  * e.g. getProductTotal(project, 'Access Point') → 6
  */
-export function getProductTotal(project: Project, product: string): number {
+export function getProductTotal(project: Project, keyOrName: string): number {
   const item = project.lineItems.find(
-    (i) => i.included && i.product.toLowerCase() === product.toLowerCase()
+    (i) => i.included && (
+      i.canonicalKey === keyOrName ||
+      i.product.toLowerCase() === keyOrName.toLowerCase()
+    )
   );
   if (!item) return 0;
   return item.roomAllocations.reduce((sum, ra) => sum + (ra.qty || 0), 0);
@@ -166,15 +180,20 @@ export function getProductTotal(project: Project, product: string): number {
 
 /**
  * Get per-room breakdown for a product.
+ * Matches on canonicalKey first (exact), then falls back to product name (case-insensitive).
+ * e.g. getRoomBreakdown(project, 'networking.access-point')
  * e.g. getRoomBreakdown(project, 'Access Point')
- * → [{ room: 'Living Room', qty: 2 }, { room: 'Master Bedroom', qty: 1 }, ...]
+ * → [{ roomId: '...', roomName: 'Living Room', qty: 2 }, ...]
  */
 export function getRoomBreakdown(
   project: Project,
-  product: string
+  keyOrName: string
 ): Array<{ roomId: string; roomName: string; qty: number }> {
   const item = project.lineItems.find(
-    (i) => i.included && i.product.toLowerCase() === product.toLowerCase()
+    (i) => i.included && (
+      i.canonicalKey === keyOrName ||
+      i.product.toLowerCase() === keyOrName.toLowerCase()
+    )
   );
   if (!item) return [];
 
@@ -240,6 +259,7 @@ export function getDevicesByRoom(project: Project): Map<
 export function getActiveDeviceList(project: Project): Array<{
   scope: string;
   product: string;
+  canonicalKey: string | undefined;
   brand: string;
   model: string;
   specs: string;
@@ -262,6 +282,7 @@ export function getActiveDeviceList(project: Project): Array<{
       return {
         scope: item.scope,
         product: item.product,
+        canonicalKey: item.canonicalKey,
         brand: item.brand,
         model: item.modelNumber,
         specs: item.specs,
@@ -274,6 +295,14 @@ export function getActiveDeviceList(project: Project): Array<{
         ? a.scope.localeCompare(b.scope)
         : a.product.localeCompare(b.product)
     );
+}
+
+/**
+ * Find items that have no canonicalKey (custom items that need mapping).
+ * Use this in the Settings/Aliases UI.
+ */
+export function getUnmappedCustomItems(project: Project): LineItem[] {
+  return project.lineItems.filter((i) => i.isCustom && !i.canonicalKey);
 }
 
 // ─── Summary Views ────────────────────────────────────────────────

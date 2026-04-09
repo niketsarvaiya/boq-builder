@@ -20,6 +20,14 @@ export interface LineItem {
   roomAllocations: RoomAllocation[];
   included: boolean;
   isCustom?: boolean;
+  canonicalKey?: string;   // stable cross-tool identifier
+}
+
+export interface CanonicalKeyMap {
+  // Maps canonicalKey → product display name
+  // Built-in keys are in CANONICAL_KEYS constant
+  // Custom mappings saved in localStorage
+  [canonicalKey: string]: string;
 }
 
 export interface Project {

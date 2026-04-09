@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import ProjectsPage from './pages/ProjectsPage';
 import BOQPage from './pages/BOQPage';
+import SettingsPage from './pages/SettingsPage';
 
 type View =
   | { page: 'projects' }
-  | { page: 'boq'; projectId: string };
+  | { page: 'boq'; projectId: string }
+  | { page: 'settings' };
 
 export default function App() {
   const [view, setView] = useState<View>({ page: 'projects' });
@@ -18,9 +20,18 @@ export default function App() {
     );
   }
 
+  if (view.page === 'settings') {
+    return (
+      <SettingsPage
+        onBack={() => setView({ page: 'projects' })}
+      />
+    );
+  }
+
   return (
     <ProjectsPage
       onOpenProject={(id) => setView({ page: 'boq', projectId: id })}
+      onOpenSettings={() => setView({ page: 'settings' })}
     />
   );
 }

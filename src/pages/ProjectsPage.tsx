@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, FolderOpen, Trash2, MapPin, User, Clock, Layers } from 'lucide-react';
+import { Plus, FolderOpen, Trash2, MapPin, User, Clock, Layers, Settings } from 'lucide-react';
 import type { Project } from '../types/index';
 import { loadProjects, saveProject, deleteProject } from '../lib/storage';
 import { createDefaultLineItems } from '../lib/defaultProducts';
@@ -8,6 +8,7 @@ import Modal from '../components/ui/Modal';
 
 interface ProjectsPageProps {
   onOpenProject: (id: string) => void;
+  onOpenSettings: () => void;
 }
 
 interface NewProjectForm {
@@ -31,7 +32,7 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
-export default function ProjectsPage({ onOpenProject }: ProjectsPageProps) {
+export default function ProjectsPage({ onOpenProject, onOpenSettings }: ProjectsPageProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState<NewProjectForm>(EMPTY_FORM);
@@ -117,16 +118,38 @@ export default function ProjectsPage({ onOpenProject }: ProjectsPageProps) {
             </div>
           </div>
 
-          <button
-            onClick={() => setShowNew(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-            style={{ background: 'var(--color-accent)', color: '#fff' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-accent-hover)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-accent)')}
-          >
-            <Plus size={16} />
-            New Project
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onOpenSettings}
+              className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors"
+              style={{
+                background: 'var(--color-bg-input)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-muted)',
+              }}
+              title="Settings"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-accent)';
+                e.currentTarget.style.color = 'var(--color-accent)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-border)';
+                e.currentTarget.style.color = 'var(--color-text-muted)';
+              }}
+            >
+              <Settings size={16} />
+            </button>
+            <button
+              onClick={() => setShowNew(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+              style={{ background: 'var(--color-accent)', color: '#fff' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-accent-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-accent)')}
+            >
+              <Plus size={16} />
+              New Project
+            </button>
+          </div>
         </div>
       </header>
 
