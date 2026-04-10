@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>BOQ Dev Seed</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #e4e4e7; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .card { background: #18181b; border: 1px solid #27272a; border-radius: 16px; padding: 40px; max-width: 560px; width: 100%; }
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .sub { font-size: 13px; color: #71717a; margin-bottom: 28px; }
+    .project-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+    .project { background: #27272a; border-radius: 10px; padding: 14px 16px; }
+    .project-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .project-meta { font-size: 12px; color: #71717a; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .tag { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: #3f3f46; color: #a1a1aa; }
+    .tag.green { background: #14532d; color: #86efac; }
+    .tag.blue { background: #1e3a5f; color: #93c5fd; }
+    .tag.purple { background: #3b1d5c; color: #d8b4fe; }
+    .tag.red { background: #450a0a; color: #fca5a5; }
+    .tag.amber { background: #451a03; color: #fcd34d; }
+    .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .btn-seed { background: #18181b; color: #e4e4e7; border: 1px solid #3f3f46; }
+    .btn-seed:hover { background: #27272a; }
+    .btn-go { background: #ffffff; color: #0f0f0f; margin-top: 10px; }
+    .btn-go:hover { background: #e4e4e7; }
+    .status { font-size: 13px; margin-top: 16px; padding: 12px 16px; border-radius: 8px; display: none; }
+    .status.success { background: #14532d; color: #86efac; display: block; }
+    .status.error { background: #450a0a; color: #fca5a5; display: block; }
+    .warn { font-size: 12px; color: #f59e0b; margin-top: 16px; text-align: center; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>BOQ Dev Seed</h1>
+  <p class="sub">Clears all existing BOQ data and seeds 4 test projects with different scopes.</p>
+
+  <div class="project-list">
+    <div class="project">
+      <div class="project-name">Kapoor Estate — Bandra West</div>
+      <div class="project-meta">BA-2025-001 · Raj &amp; Priya Kapoor · Full scope flagship</div>
+      <div class="tags">
+        <span class="tag amber">Lighting</span>
+        <span class="tag blue">AC</span>
+        <span class="tag">Motors</span>
+        <span class="tag purple">AV + 5.1.2 Theatre</span>
+        <span class="tag blue">Networking</span>
+        <span class="tag red">CCTV + VDP</span>
+        <span class="tag green">Basalte</span>
+      </div>
+    </div>
+    <div class="project">
+      <div class="project-name">Mehta Flat 4B — Juhu</div>
+      <div class="project-meta">BA-2025-002 · Vikram Mehta · Mid-range residential</div>
+      <div class="tags">
+        <span class="tag amber">Lighting</span>
+        <span class="tag blue">AC</span>
+        <span class="tag purple">TV + Speakers</span>
+        <span class="tag blue">Networking</span>
+        <span class="tag green">Parriot</span>
+      </div>
+    </div>
+    <div class="project">
+      <div class="project-name">Beyond HQ — BKC</div>
+      <div class="project-meta">BA-2025-003 · Beyond Alliance · Commercial / office</div>
+      <div class="tags">
+        <span class="tag blue">Networking</span>
+        <span class="tag purple">Conference AV</span>
+        <span class="tag red">Full Security</span>
+        <span class="tag green">Crestron</span>
+      </div>
+    </div>
+    <div class="project">
+      <div class="project-name">Sunrise Villa — Lonavala</div>
+      <div class="project-meta">BA-2025-004 · Amit &amp; Nisha Arora · Basic holiday home</div>
+      <div class="tags">
+        <span class="tag amber">Lighting</span>
+        <span class="tag blue">AC</span>
+        <span class="tag blue">Networking</span>
+        <span class="tag purple">TV + Poolside Audio</span>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-seed" onclick="seedData()">⚡ Clear Everything &amp; Seed Projects</button>
+  <button class="btn btn-go" id="goBtn" style="display:none" onclick="goToApp()">Open BOQ Builder →</button>
+  <div class="status" id="status"></div>
+  <p class="warn">⚠️ This will permanently delete all existing BOQ data in this browser.</p>
+</div>
+
+<script>
+'use strict';
+
+var STORAGE_KEY = 'boq_projects';
+
+// All default products catalog (mirrors defaultProducts.ts)
+var CATALOG = [
+  { scope: 'Backend Lighting', product: 'On/Off Lights',               canonicalKey: 'lighting.on-off'          },
+  { scope: 'Backend Lighting', product: 'Phasecut (Non-Dali Decorative)', canonicalKey: 'lighting.phasecut'      },
+  { scope: 'Backend Lighting', product: 'Dali Dimmable',               canonicalKey: 'lighting.dali-dimmable'   },
+  { scope: 'Backend Lighting', product: 'Dali Tunable',                canonicalKey: 'lighting.dali-tunable'    },
+  { scope: 'Backend Lighting', product: 'Fan - On/Off',                canonicalKey: 'lighting.fan-on-off'      },
+  { scope: 'Backend Lighting', product: 'Fan - Speed Control',         canonicalKey: 'lighting.fan-speed'       },
+  { scope: 'Temp / AC',        product: 'AC',                          canonicalKey: 'ac.ac'                    },
+  { scope: 'Front End',        product: '8 Button Keypad',             canonicalKey: 'frontend.keypad-8btn'     },
+  { scope: 'Front End',        product: '4 Button Keypad',             canonicalKey: 'frontend.keypad-4btn'     },
+  { scope: 'Front End',        product: 'Lira Push Button',            canonicalKey: 'frontend.lira-push'       },
+  { scope: 'Front End',        product: 'Electrical Push Button',      canonicalKey: 'frontend.elec-push'       },
+  { scope: 'Front End',        product: 'Remotes / Wireless Keypads',  canonicalKey: 'frontend.remotes'         },
+  { scope: 'Front End',        product: 'iPad Docking Station',        canonicalKey: 'frontend.ipad-dock'       },
+  { scope: 'IR',               product: 'IR AV Controller',            canonicalKey: 'ir.av-controller'         },
+  { scope: 'Motors',           product: 'Roman Blinds',                canonicalKey: 'motors.roman-blinds'      },
+  { scope: 'Motors',           product: 'Roller Blinds',               canonicalKey: 'motors.roller-blinds'     },
+  { scope: 'Motors',           product: 'American Curtains',           canonicalKey: 'motors.american-curtains' },
+  { scope: 'Motors',           product: 'Ripple Fold Curtains',        canonicalKey: 'motors.ripple-fold'       },
+  { scope: 'Motors',           product: 'Bar Lift',                    canonicalKey: 'motors.bar-lift'          },
+  { scope: 'AV',               product: 'Motorized Screen',            canonicalKey: 'av.motorized-screen'      },
+  { scope: 'AV',               product: 'Fixed Screen',                canonicalKey: 'av.fixed-screen'          },
+  { scope: 'AV',               product: 'Projector Lift',              canonicalKey: 'av.proj-lift'             },
+  { scope: 'AV',               product: 'Motorized Drawer',            canonicalKey: 'av.motorized-drawer'      },
+  { scope: 'AV',               product: 'TV Lift',                     canonicalKey: 'av.tv-lift'               },
+  { scope: 'AV',               product: 'AVR / Streamer',              canonicalKey: 'av.avr-streamer'          },
+  { scope: 'AV',               product: 'Amplifier',                   canonicalKey: 'av.amplifier'             },
+  { scope: 'AV',               product: 'Projector',                   canonicalKey: 'av.projector'             },
+  { scope: 'AV',               product: 'TV',                          canonicalKey: 'av.tv'                    },
+  { scope: 'AV',               product: 'Speakers',                    canonicalKey: 'av.speakers'              },
+  { scope: 'AV',               product: 'Woofer / Subwoofer',          canonicalKey: 'av.subwoofer'             },
+  { scope: 'Networking',       product: 'Access Point',                canonicalKey: 'networking.access-point'  },
+  { scope: 'Networking',       product: 'POE Switch',                  canonicalKey: 'networking.poe-switch'    },
+  { scope: 'Networking',       product: 'Non POE Switch',              canonicalKey: 'networking.non-poe-switch'},
+  { scope: 'Networking',       product: 'Dual WAN Firewall',           canonicalKey: 'networking.dual-wan-firewall' },
+  { scope: 'Integrated Security', product: 'IPBX',                     canonicalKey: 'security.ipbx'            },
+  { scope: 'Integrated Security', product: 'CCTV',                     canonicalKey: 'security.cctv'            },
+  { scope: 'Integrated Security', product: 'VDP',                      canonicalKey: 'security.vdp'             },
+  { scope: 'Integrated Security', product: 'Readers',                  canonicalKey: 'security.readers'         },
+  { scope: 'Integrated Security', product: 'Exit Button',              canonicalKey: 'security.exit-button'     },
+  { scope: 'Integrated Security', product: 'Locks',                    canonicalKey: 'security.locks'           },
+  { scope: 'Cables',           product: 'HDMI',                        canonicalKey: 'cables.hdmi'              },
+  { scope: 'Cables',           product: 'Speaker Cable',               canonicalKey: 'cables.speaker'           },
+  { scope: 'Cables',           product: 'Woofer Cable',                canonicalKey: 'cables.woofer'            },
+  { scope: 'Cables',           product: 'Optical',                     canonicalKey: 'cables.optical'           },
+  { scope: 'Cables',           product: 'Stereo',                      canonicalKey: 'cables.stereo'            },
+  { scope: 'Backend Infrastructure', product: 'Networking Rack',       canonicalKey: 'backend.networking-rack'  },
+  { scope: 'Backend Infrastructure', product: 'Automation DB',         canonicalKey: 'backend.automation-db'   },
+  { scope: 'General',          product: 'Alexa Integration',           canonicalKey: 'general.alexa'            },
+  { scope: 'General',          product: 'Apple HomeKit',               canonicalKey: 'general.apple-homekit'    },
+  { scope: 'General',          product: 'Crestron App',                canonicalKey: 'general.crestron-app'     },
+  { scope: 'General',          product: 'Basalte Processor',           canonicalKey: 'general.basalte-processor'},
+  { scope: 'Sensors',          product: 'Motion Sensors',              canonicalKey: 'sensors.motion'           },
+  { scope: 'Processors',       product: 'Crestron',                    canonicalKey: 'processors.crestron'      },
+  { scope: 'Processors',       product: 'Basalte',                     canonicalKey: 'processors.basalte'       },
+  { scope: 'Processors',       product: 'Parriot',                     canonicalKey: 'processors.parriot'       },
+  { scope: 'Processors',       product: 'Cue',                         canonicalKey: 'processors.cue'           },
+];
+
+// Build a full lineItems array for a project.
+// activeMap: { canonicalKey: { roomIndex: qty, ... } }  (roomIndex = index into rooms array)
+function buildItems(pid, rooms, activeMap) {
+  return CATALOG.map(function(def, i) {
+    var isActive = activeMap.hasOwnProperty(def.canonicalKey);
+    var roomAllocations = [];
+    if (isActive) {
+      var alloc = activeMap[def.canonicalKey];
+      Object.keys(alloc).forEach(function(ri) {
+        var qty = alloc[ri];
+        if (qty > 0 && rooms[parseInt(ri)]) {
+          roomAllocations.push({ roomId: rooms[parseInt(ri)].id, qty: qty });
+        }
+      });
+    }
+    return {
+      id: 'seed_' + pid + '_item_' + i,
+      scope: def.scope,
+      product: def.product,
+      brand: '',
+      modelNumber: '',
+      specs: '',
+      notes: '',
+      roomAllocations: roomAllocations,
+      included: isActive,
+      isCustom: false,
+      canonicalKey: def.canonicalKey,
+    };
+  });
+}
+
+function makeRooms(pid, names) {
+  return names.map(function(name, i) {
+    return { id: 'seed_' + pid + '_r' + i, name: name, order: i };
+  });
+}
+
+function seedData() {
+  try {
+    var now = new Date().toISOString();
+
+    // ── Project 1: Kapoor Estate — Bandra West ──────────────────────
+    var rooms1 = makeRooms(1, ['Foyer', 'Living Room', 'Dining Room', 'Master Bedroom', 'Guest Bedroom', 'Theatre Room', 'Kitchen', 'Study']);
+    var p1 = {
+      id: 'seed_proj_1',
+      name: 'Kapoor Estate — Bandra West',
+      client: 'Raj & Priya Kapoor',
+      location: 'Bandra West, Mumbai',
+      projectCode: 'BA-2025-001',
+      createdAt: now, updatedAt: now,
+      rooms: rooms1,
+      lineItems: buildItems(1, rooms1, {
+        // Lighting — Dali Tunable in all main rooms, phasecut in kitchen, fan speed
+        'lighting.dali-tunable':  { 0:8, 1:12, 2:6, 3:8, 4:6, 7:4 },
+        'lighting.phasecut':      { 6:4 },
+        'lighting.fan-speed':     { 1:2, 2:1, 3:1, 4:1 },
+        // AC
+        'ac.ac':                  { 1:2, 2:1, 3:2, 4:1, 5:1, 7:1 },
+        // Motors
+        'motors.roman-blinds':    { 1:3, 3:2 },
+        'motors.roller-blinds':   { 4:2, 7:1 },
+        // AV — 5.1.2 theatre + TVs
+        'av.projector':           { 5:1 },
+        'av.motorized-screen':    { 5:1 },
+        'av.proj-lift':           { 5:1 },
+        'av.amplifier':           { 5:1 },
+        'av.speakers':            { 5:7 },   // 5.1.2 = 7 channels
+        'av.subwoofer':           { 5:2 },   // dual sub (.2)
+        'av.avr-streamer':        { 5:1, 1:1, 3:1 },
+        'av.tv':                  { 1:1, 3:1, 4:1 },
+        'av.tv-lift':             { 3:1 },
+        // Networking — AP in every room
+        'networking.access-point':      { 0:1, 1:1, 2:1, 3:1, 4:1, 5:1, 6:1, 7:1 },
+        'networking.poe-switch':        { 7:2 },
+        'networking.dual-wan-firewall': { 7:1 },
+        // Security
+        'security.cctv':    { 0:2, 1:1, 5:1, 6:1 },
+        'security.vdp':     { 0:1 },
+        'security.readers': { 0:2 },
+        'security.locks':   { 0:2 },
+        // Processor & Frontend
+        'processors.basalte':       { 7:1 },
+        'frontend.keypad-8btn':     { 1:1, 2:1, 3:1, 4:1, 5:1, 7:1 },
+        'frontend.ipad-dock':       { 1:1, 3:1 },
+        'ir.av-controller':         { 5:1, 1:1 },
+        // Backend
+        'backend.networking-rack':  { 7:1 },
+        'backend.automation-db':    { 7:1 },
+        // Cables
+        'cables.hdmi':    { 5:4, 1:2, 3:2 },
+        'cables.speaker': { 5:7 },
+        'cables.woofer':  { 5:2 },
+        // General & Sensors
+        'general.apple-homekit': { 7:1 },
+        'sensors.motion':        { 0:2, 1:1, 5:1 },
+      }),
+    };
+
+    // ── Project 2: Mehta Flat 4B — Juhu ────────────────────────────
+    var rooms2 = makeRooms(2, ['Living Room', 'Master Bedroom', 'Bedroom 2', 'Kitchen']);
+    var p2 = {
+      id: 'seed_proj_2',
+      name: 'Mehta Flat 4B — Juhu',
+      client: 'Vikram Mehta',
+      location: 'Juhu, Mumbai',
+      projectCode: 'BA-2025-002',
+      createdAt: now, updatedAt: now,
+      rooms: rooms2,
+      lineItems: buildItems(2, rooms2, {
+        'lighting.dali-dimmable': { 0:8, 1:6, 2:4 },
+        'lighting.on-off':        { 3:4 },
+        'lighting.fan-on-off':    { 0:1, 1:1, 2:1 },
+        'ac.ac':                  { 0:2, 1:2, 2:1 },
+        'av.tv':                  { 0:1, 1:1 },
+        'av.avr-streamer':        { 0:1 },
+        'av.speakers':            { 0:4 },
+        'networking.access-point':{ 0:1, 1:1, 2:1 },
+        'networking.poe-switch':  { 3:1 },
+        'frontend.keypad-4btn':   { 0:1, 1:1, 2:1, 3:1 },
+        'processors.parriot':     { 3:1 },
+        'backend.automation-db':  { 3:1 },
+        'cables.speaker':         { 0:4 },
+      }),
+    };
+
+    // ── Project 3: Beyond HQ — BKC ──────────────────────────────────
+    var rooms3 = makeRooms(3, ['Reception', 'Conference Room A', 'Conference Room B', 'Director Cabin', 'IT Room']);
+    var p3 = {
+      id: 'seed_proj_3',
+      name: 'Beyond HQ — BKC',
+      client: 'Beyond Alliance (Internal)',
+      location: 'BKC, Mumbai',
+      projectCode: 'BA-2025-003',
+      createdAt: now, updatedAt: now,
+      rooms: rooms3,
+      lineItems: buildItems(3, rooms3, {
+        'lighting.on-off':              { 0:12, 1:8, 2:8, 3:6, 4:4 },
+        'networking.access-point':      { 0:2, 1:1, 2:1, 3:1, 4:2 },
+        'networking.poe-switch':        { 4:2 },
+        'networking.non-poe-switch':    { 4:1 },
+        'networking.dual-wan-firewall': { 4:1 },
+        'av.tv':                        { 0:1, 1:2, 2:2, 3:1 },
+        'av.amplifier':                 { 1:1, 2:1 },
+        'av.speakers':                  { 1:4, 2:4 },
+        'av.avr-streamer':              { 1:1, 2:1 },
+        'security.cctv':                { 0:4, 1:1, 2:1, 3:1, 4:2 },
+        'security.vdp':                 { 0:1 },
+        'security.ipbx':                { 4:1 },
+        'security.readers':             { 0:2, 1:1, 2:1, 3:1 },
+        'security.exit-button':         { 0:2, 1:1, 2:1, 3:1 },
+        'security.locks':               { 0:2, 1:1, 2:1, 3:1 },
+        'processors.crestron':          { 4:1 },
+        'backend.networking-rack':      { 4:1 },
+        'backend.automation-db':        { 4:1 },
+        'cables.hdmi':                  { 1:4, 2:4, 3:2 },
+        'cables.speaker':               { 1:4, 2:4 },
+        'ir.av-controller':             { 1:1, 2:1 },
+      }),
+    };
+
+    // ── Project 4: Sunrise Villa — Lonavala ─────────────────────────
+    var rooms4 = makeRooms(4, ['Master Bedroom', 'Kids Room', 'Living Room', 'Poolside']);
+    var p4 = {
+      id: 'seed_proj_4',
+      name: 'Sunrise Villa — Lonavala',
+      client: 'Amit & Nisha Arora',
+      location: 'Lonavala, Maharashtra',
+      projectCode: 'BA-2025-004',
+      createdAt: now, updatedAt: now,
+      rooms: rooms4,
+      lineItems: buildItems(4, rooms4, {
+        'lighting.on-off':        { 0:6, 1:6, 2:8, 3:4 },
+        'lighting.fan-on-off':    { 0:1, 1:1, 2:1 },
+        'ac.ac':                  { 0:2, 1:1, 2:2 },
+        'networking.access-point':{ 0:1, 1:1, 2:1, 3:1 },
+        'networking.poe-switch':  { 0:1 },
+        'av.tv':                  { 0:1, 2:1 },
+        'av.speakers':            { 3:4 },
+        'av.amplifier':           { 0:1 },
+        'frontend.keypad-4btn':   { 0:1, 1:1, 2:1 },
+      }),
+    };
+
+    var projects = [p1, p2, p3, p4];
+
+    // Write to localStorage
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+
+    // Broadcast to any open BOQ Builder tabs
+    try {
+      var bc = new BroadcastChannel('boq-project-updates');
+      bc.postMessage({ type: 'projects-updated', projects: projects });
+      bc.close();
+    } catch(e) {}
+
+    var status = document.getElementById('status');
+    status.className = 'status success';
+    status.textContent = '✓ 4 projects seeded successfully into localStorage[boq_projects].';
+    document.getElementById('goBtn').style.display = 'block';
+  } catch(e) {
+    var status = document.getElementById('status');
+    status.className = 'status error';
+    status.textContent = '✗ Error: ' + e.message;
+  }
+}
+
+function goToApp() {
+  window.location.href = '/';
+}
+</script>
+</body>
+</html>
