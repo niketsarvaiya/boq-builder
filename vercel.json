@@ -1,0 +1,17 @@
+{
+  "headers": [
+    {
+      "source": "/sync-bridge.html",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "ALLOW-FROM https://beyond-finesse-tools.vercel.app https://beyond-alliance.vercel.app"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' http://localhost:5174 http://localhost:3032 https://beyond-finesse-tools.vercel.app https://beyond-alliance.vercel.app"
+        }
+      ]
+    }
+  ]
+}

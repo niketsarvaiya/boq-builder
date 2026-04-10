@@ -1,6 +1,6 @@
 import type { Project } from '../types/index';
 
-const STORAGE_KEY = 'boq_builder_projects';
+const STORAGE_KEY = 'boq_projects';
 
 export function loadProjects(): Project[] {
   try {
@@ -14,6 +14,12 @@ export function loadProjects(): Project[] {
 
 export function saveProjects(projects: Project[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+  // Broadcast to subscribers (sync bridge iframe, etc.)
+  try {
+    const bc = new BroadcastChannel('boq-project-updates');
+    bc.postMessage({ type: 'projects-updated', projects });
+    bc.close();
+  } catch { /* not supported */ }
 }
 
 export function loadProject(id: string): Project | null {

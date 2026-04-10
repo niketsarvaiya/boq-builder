@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>BOQ Sync Bridge</title></head>
+<body>
+<script>
+  'use strict';
+  var STORAGE_KEY = 'boq_projects';
+  var ALLOWED_ORIGINS = [
+    'http://localhost:5174',
+    'http://localhost:3032',
+    'http://localhost:3000',
+    'https://beyond-finesse-tools.vercel.app',
+    'https://brahmastra.vercel.app',
+    'https://beyond-alliance.vercel.app'
+  ];
+
+  function getProjects() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch(e) { return []; }
+  }
+
+  function sendToParent(data) {
+    try { window.parent.postMessage(data, '*'); } catch(e) {}
+  }
+
+  // 1. Handle requests from parent frames
+  window.addEventListener('message', function(e) {
+    if (ALLOWED_ORIGINS.indexOf(e.origin) === -1) return;
+    if (!e.data || e.data.type !== 'boq-bridge-request') return;
+    var projects = getProjects();
+    try {
+      e.source.postMessage({ type: 'boq-bridge-response', projects: projects }, e.origin);
+    } catch(err) {}
+  });
+
+  // 2. Forward storage events (changes made in another BOQ Builder tab)
+  window.addEventListener('storage', function(e) {
+    if (e.key !== STORAGE_KEY) return;
+    var projects = JSON.parse(e.newValue || '[]');
+    sendToParent({ type: 'boq-projects-changed', projects: projects });
+  });
+
+  // 3. Forward BroadcastChannel events (changes made in the same BOQ Builder tab/window)
+  try {
+    var bc = new BroadcastChannel('boq-project-updates');
+    bc.onmessage = function(e) {
+      if (e.data && e.data.projects) {
+        sendToParent({ type: 'boq-projects-changed', projects: e.data.projects });
+      }
+    };
+  } catch(e) {}
+
+  // 4. Signal ready
+  sendToParent({ type: 'boq-bridge-ready' });
+</script>
+</body>
+</html>
