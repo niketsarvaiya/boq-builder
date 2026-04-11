@@ -2,7 +2,7 @@ import { useState } from 'react';
 import ProjectsPage from './pages/ProjectsPage';
 import BOQPage from './pages/BOQPage';
 import SettingsPage from './pages/SettingsPage';
-import { detectSyncRequest, sendSyncAndClose } from './lib/syncExport';
+import { detectSyncRequest, sendSyncAndClose, sendAllAndClose } from './lib/syncExport';
 import { loadProjects } from './lib/storage';
 
 type View =
@@ -14,6 +14,19 @@ export default function App() {
   const [syncState] = useState(() => detectSyncRequest());
   const [view, setView] = useState<View>({ page: 'projects' });
   const [syncSent, setSyncSent] = useState(false);
+
+  // ── Sync mode: send ALL projects and close ───────────────────────────────
+  if (syncState.mode === 'all' && !syncSent) {
+    sendAllAndClose(syncState.callbackOrigin);
+    return (
+      <div style={{ minHeight: '100vh', background: '#0f1117', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui' }}>
+        <div style={{ textAlign: 'center', color: '#fff' }}>
+          <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>✓ All projects synced</div>
+          <div style={{ fontSize: '13px', color: '#565a72' }}>Sending to Beyond Brahmastra… closing</div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Sync mode: auto-export a specific project ─────────────────────────────
   if (syncState.mode === 'auto' && !syncSent) {

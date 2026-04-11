@@ -18,29 +18,34 @@ interface Project {
   lineItems: unknown[];
 }
 
-function loadProject(id: string): Project | null {
+function loadAllProjects(): Project[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const projects = JSON.parse(raw) as Project[];
-    return projects.find((p) => p.id === id) ?? null;
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as Project[];
   } catch {
-    return null;
+    return [];
   }
+}
+
+function loadProject(id: string): Project | null {
+  return loadAllProjects().find((p) => p.id === id) ?? null;
 }
 
 export type SyncRequestState =
   | { mode: 'none' }
+  | { mode: 'all';  callbackOrigin: string }           // send ALL projects and close
   | { mode: 'auto'; projectId: string; callbackOrigin: string }
-  | { mode: 'pick'; callbackOrigin: string };  // no projectId — show project picker
+  | { mode: 'pick'; callbackOrigin: string };
 
-/**
- * Call this once on app startup.
- * Detects sync-request URL params and returns the sync state.
- * - 'none'  → normal app
- * - 'auto'  → projectId known, auto-export immediately
- * - 'pick'  → opened by a tool but no project ID — show picker
- */
+const ALLOWED_CALLBACKS = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  'http://localhost:3032',
+  'https://brahmastra.vercel.app',
+  'https://beyond-finesse-tools.vercel.app',
+  'https://beyond-alliance.vercel.app',
+];
+
 export function detectSyncRequest(): SyncRequestState {
   const params = new URLSearchParams(window.location.search);
   const rawId = params.get('sync-request');
@@ -48,32 +53,33 @@ export function detectSyncRequest(): SyncRequestState {
 
   if (rawId === null || !callbackOrigin) return { mode: 'none' };
 
-  // Validate callback origin
-  const ALLOWED_CALLBACKS = [
-    'http://localhost:5174',
-    'http://localhost:3000',
-    'http://localhost:3032',
-    'https://brahmastra.vercel.app',
-    'https://beyond-finesse-tools.vercel.app',
-    'https://beyond-alliance.vercel.app',
-  ];
-
   if (!ALLOWED_CALLBACKS.some((o) => callbackOrigin.startsWith(o))) {
     console.warn('[BOQ Sync] Untrusted callback origin:', callbackOrigin);
     return { mode: 'none' };
   }
 
-  if (!rawId) {
-    // No project ID — caller wants user to pick
-    return { mode: 'pick', callbackOrigin };
-  }
+  // sync-request=all → send every project and close immediately
+  if (rawId === 'all') return { mode: 'all', callbackOrigin };
+
+  // sync-request=  (empty) → show project picker
+  if (!rawId) return { mode: 'pick', callbackOrigin };
 
   return { mode: 'auto', projectId: rawId, callbackOrigin };
 }
 
-/**
- * Send a project to the opener and close the popup.
- */
+/** Send ALL projects to the opener then close the popup. */
+export function sendAllAndClose(callbackOrigin: string): void {
+  const projects = loadAllProjects();
+  if (window.opener) {
+    window.opener.postMessage(
+      { type: 'boq-sync-all', projects, syncedAt: new Date().toISOString() },
+      callbackOrigin
+    );
+  }
+  setTimeout(() => window.close(), 800);
+}
+
+/** Send a single project to the opener then close the popup. */
 export function sendSyncAndClose(projectId: string, callbackOrigin: string): boolean {
   const project = loadProject(projectId);
   if (!project) {
@@ -86,15 +92,6 @@ export function sendSyncAndClose(projectId: string, callbackOrigin: string): boo
       callbackOrigin
     );
   }
-  setTimeout(() => window.close(), 1200);
+  setTimeout(() => window.close(), 800);
   return true;
-}
-
-/** @deprecated use detectSyncRequest + sendSyncAndClose */
-export function handleSyncRequestIfPresent(): boolean {
-  const state = detectSyncRequest();
-  if (state.mode === 'auto') {
-    return sendSyncAndClose(state.projectId, state.callbackOrigin);
-  }
-  return state.mode === 'pick';
 }
