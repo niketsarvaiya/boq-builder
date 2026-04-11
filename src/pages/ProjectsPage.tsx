@@ -99,7 +99,7 @@ export default function ProjectsPage({ onOpenProject, onOpenSettings }: Projects
                   className="font-bold text-lg tracking-tight"
                   style={{ color: 'var(--color-text-primary)' }}
                 >
-                  BOQ Builder
+                  Beyond BOQ
                 </span>
                 <span
                   className="text-xs px-2 py-0.5 rounded-full font-medium"
@@ -113,7 +113,7 @@ export default function ProjectsPage({ onOpenProject, onOpenSettings }: Projects
                 </span>
               </div>
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Beyond Alliance · Smart Home &amp; AV Integration
+                by Beyond Alliance
               </p>
             </div>
           </div>

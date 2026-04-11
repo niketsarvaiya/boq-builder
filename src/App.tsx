@@ -21,8 +21,8 @@ export default function App() {
     return (
       <div style={{ minHeight: '100vh', background: '#0f1117', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui' }}>
         <div style={{ textAlign: 'center', color: '#fff' }}>
-          <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>✓ BOQ Synced</div>
-          <div style={{ fontSize: '13px', color: '#565a72' }}>Sending data to Brahmastra…</div>
+          <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>✓ Synced</div>
+          <div style={{ fontSize: '13px', color: '#565a72' }}>Sending data to Beyond Brahmastra…</div>
         </div>
       </div>
     );
@@ -33,8 +33,8 @@ export default function App() {
     const projects = loadProjects();
     const callbackOrigin = syncState.callbackOrigin;
     const callerName = callbackOrigin.includes('3032') || callbackOrigin.includes('beyond-alliance')
-      ? 'Beyond Alliance Guides'
-      : 'Brahmastra';
+      ? 'Beyond Guides'
+      : 'Beyond Brahmastra';
 
     return (
       <div style={{ minHeight: '100vh', background: '#0f1117', color: '#fff', fontFamily: 'system-ui', padding: '40px 24px' }}>
@@ -46,7 +46,7 @@ export default function App() {
                 📋
               </div>
               <div>
-                <div style={{ fontSize: '15px', fontWeight: 700 }}>BOQ Builder</div>
+                <div style={{ fontSize: '15px', fontWeight: 700 }}>Beyond BOQ</div>
                 <div style={{ fontSize: '11px', color: '#565a72' }}>Sync request</div>
               </div>
             </div>

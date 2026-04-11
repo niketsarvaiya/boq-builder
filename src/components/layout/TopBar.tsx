@@ -57,7 +57,7 @@ export default function TopBar({
           className="text-xs font-semibold tracking-widest uppercase hidden sm:inline"
           style={{ color: 'var(--color-accent)' }}
         >
-          BOQ Builder
+          Beyond BOQ
         </span>
       </div>
 
