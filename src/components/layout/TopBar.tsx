@@ -1,5 +1,6 @@
 import { ArrowLeft, Download, Settings2, CheckCircle2, Loader2 } from 'lucide-react';
 import type { Project } from '../../types/index';
+import { ThemeToggle } from '../ui/ThemeToggle';
 
 interface TopBarProps {
   project: Project;
@@ -124,6 +125,8 @@ export default function TopBar({
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        <ThemeToggle />
+
         <button
           onClick={onManageRooms}
           className="flex items-center gap-1.5 px-3 h-8 rounded-lg text-sm font-medium transition-colors"

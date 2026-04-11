@@ -5,6 +5,7 @@ import { loadProjects, saveProject, deleteProject } from '../lib/storage';
 import { createDefaultLineItems } from '../lib/defaultProducts';
 import { generateId } from '../lib/boqUtils';
 import Modal from '../components/ui/Modal';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 
 interface ProjectsPageProps {
   onOpenProject: (id: string) => void;
@@ -119,6 +120,7 @@ export default function ProjectsPage({ onOpenProject, onOpenSettings }: Projects
           </div>
 
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <button
               onClick={onOpenSettings}
               className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors"

@@ -173,3 +173,25 @@ tr.row-excluded {
 .inline-edit:focus {
   border-bottom: 1px solid var(--color-accent);
 }
+
+/* ─── Light theme overrides ────────────────────────── */
+[data-theme="light"] {
+  --color-bg-base: #f0f2f7;
+  --color-bg-sidebar: #ffffff;
+  --color-bg-card: #f8f9fc;
+  --color-bg-card-hover: #f0f2f8;
+  --color-bg-input: #eef0f6;
+  --color-bg-table-header: #ffffff;
+  --color-bg-row-alt: #f4f5fa;
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-light: rgba(0, 0, 0, 0.12);
+  --color-text-primary: #0f1117;
+  --color-text-secondary: #4a5068;
+  --color-text-muted: #9ca3af;
+  color-scheme: light;
+}
+
+/* Smooth transitions */
+*, *::before, *::after {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.1s ease;
+}

@@ -4,6 +4,7 @@ import BOQPage from './pages/BOQPage';
 import SettingsPage from './pages/SettingsPage';
 import { detectSyncRequest, sendSyncAndClose, sendAllAndClose } from './lib/syncExport';
 import { loadProjects } from './lib/storage';
+import { ThemeProvider } from './lib/theme';
 
 type View =
   | { page: 'projects' }
@@ -133,25 +134,31 @@ export default function App() {
   // ── Normal app ─────────────────────────────────────────────────────────────
   if (view.page === 'boq') {
     return (
-      <BOQPage
-        projectId={view.projectId}
-        onBack={() => setView({ page: 'projects' })}
-      />
+      <ThemeProvider>
+        <BOQPage
+          projectId={view.projectId}
+          onBack={() => setView({ page: 'projects' })}
+        />
+      </ThemeProvider>
     );
   }
 
   if (view.page === 'settings') {
     return (
-      <SettingsPage
-        onBack={() => setView({ page: 'projects' })}
-      />
+      <ThemeProvider>
+        <SettingsPage
+          onBack={() => setView({ page: 'projects' })}
+        />
+      </ThemeProvider>
     );
   }
 
   return (
-    <ProjectsPage
-      onOpenProject={(id) => setView({ page: 'boq', projectId: id })}
-      onOpenSettings={() => setView({ page: 'settings' })}
-    />
+    <ThemeProvider>
+      <ProjectsPage
+        onOpenProject={(id) => setView({ page: 'boq', projectId: id })}
+        onOpenSettings={() => setView({ page: 'settings' })}
+      />
+    </ThemeProvider>
   );
 }
