@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react';
 import {
   Plus, Trash2, ChevronDown, ChevronUp, ArrowLeft, ArrowRight,
-  CheckCircle2, AlertTriangle, Search, Zap,
+  CheckCircle2, AlertTriangle, Search, Zap, Pencil,
 } from 'lucide-react';
-import type { Room, LineItem } from '../types/index';
+import type { Room, LineItem, ScopeName } from '../types/index';
 import type { ParsedPRItem, ParsedDWGData, ImportDraft } from '../types/import';
 import { IMPORT_DRAFT_KEY } from '../types/import';
 import { saveProject } from '../lib/storage';
 import { generateId } from '../lib/boqUtils';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
+
+const ALL_SCOPES: ScopeName[] = [
+  'Processors', 'Front End', 'Backend Lighting', 'Temp / AC', 'IR', 'Motors',
+  'AV', 'Networking', 'Integrated Security', 'Cables', 'Backend Infrastructure',
+  'Sensors', 'General',
+];
 
 interface ImportStage2PageProps {
   onComplete: (projectId: string) => void;
@@ -108,14 +114,6 @@ function FlagBadge({ flag }: { flag: VerificationFlag }) {
   );
 }
 
-function ScopeBadge({ scope }: { scope: string }) {
-  return (
-    <span className="text-xs px-1.5 py-0.5 rounded font-mono"
-      style={{ background: 'var(--color-bg-input)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
-      {scope}
-    </span>
-  );
-}
 
 // ── Room Allocation panel ─────────────────────────────────────────────────────
 
@@ -195,6 +193,9 @@ export default function ImportStage2Page({ onComplete, onBack }: ImportStage2Pag
   const [newRoomName, setNewRoomName] = useState('');
   const [showAddRoom, setShowAddRoom] = useState(false);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [editingScopeId, setEditingScopeId] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm] = useState({ product: '', brand: '', modelNumber: '', qty: '1', scope: 'General' as ScopeName });
 
   useEffect(() => {
     try {
@@ -243,6 +244,39 @@ export default function ImportStage2Page({ onComplete, onBack }: ImportStage2Pag
         return { ...item, roomAllocations: allocs };
       }),
     );
+  }
+
+  // ── Delete PR item ────────────────────────────────────────────────────────
+
+  function deleteItem(id: string) {
+    setPrItems((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  // ── Update item scope ─────────────────────────────────────────────────────
+
+  function updateScope(id: string, scope: ScopeName) {
+    setPrItems((prev) => prev.map((item) => item.id === id ? { ...item, scope } : item));
+    setEditingScopeId(null);
+  }
+
+  // ── Add item manually ─────────────────────────────────────────────────────
+
+  function handleAddItem() {
+    if (!addForm.product.trim()) return;
+    const newItem: ParsedPRItem = {
+      id: generateId(),
+      product: addForm.product.trim(),
+      brand: addForm.brand.trim(),
+      modelNumber: addForm.modelNumber.trim(),
+      qty: Math.max(1, parseInt(addForm.qty) || 1),
+      scope: addForm.scope,
+      notes: 'Added manually',
+      rawRow: -1,
+      roomAllocations: [],
+    };
+    setPrItems((prev) => [...prev, newItem]);
+    setAddForm({ product: '', brand: '', modelNumber: '', qty: '1', scope: 'General' });
+    setShowAddForm(false);
   }
 
   // ── Add AV annotation as item ─────────────────────────────────────────────
@@ -444,7 +478,7 @@ export default function ImportStage2Page({ onComplete, onBack }: ImportStage2Pag
               PR Items ({prItems.length})
             </p>
             <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              Click an item to assign room quantities
+              Click an item to assign room quantities · hover for edit/delete
             </p>
           </div>
 
@@ -464,13 +498,13 @@ export default function ImportStage2Page({ onComplete, onBack }: ImportStage2Pag
                 {items.map((item) => {
                   const flag = getFlag(item, dwgData);
                   const isExpanded = expandedItemId === item.id;
+                  const isEditingScope = editingScopeId === item.id;
                   const totalAllocated = item.roomAllocations.reduce((s, r) => s + r.qty, 0);
 
                   return (
                     <div key={item.id}>
                       <div
-                        onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all"
+                        className="group flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all"
                         style={{
                           background: isExpanded ? 'rgba(99,102,241,0.06)' : 'var(--color-bg-card)',
                           border: `1px solid ${isExpanded ? 'var(--color-accent)' : 'var(--color-border)'}`,
@@ -482,7 +516,11 @@ export default function ImportStage2Page({ onComplete, onBack }: ImportStage2Pag
                           if (!isExpanded) e.currentTarget.style.borderColor = 'var(--color-border)';
                         }}
                       >
-                        <div className="flex-1 min-w-0">
+                        {/* Main clickable area */}
+                        <div
+                          className="flex-1 min-w-0"
+                          onClick={() => { setExpandedItemId(isExpanded ? null : item.id); setEditingScopeId(null); }}
+                        >
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
                               {item.product}
@@ -496,10 +534,58 @@ export default function ImportStage2Page({ onComplete, onBack }: ImportStage2Pag
                             {item.modelNumber && (
                               <span className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }}>{item.modelNumber}</span>
                             )}
-                            <ScopeBadge scope={item.scope} />
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 shrink-0">
+
+                        {/* Scope badge / inline scope editor */}
+                        <div className="relative shrink-0">
+                          {isEditingScope ? (
+                            <select
+                              autoFocus
+                              value={item.scope}
+                              onChange={(e) => updateScope(item.id, e.target.value as ScopeName)}
+                              onBlur={() => setEditingScopeId(null)}
+                              className="text-xs rounded px-1.5 py-1"
+                              style={{
+                                background: 'var(--color-bg-input)',
+                                border: '1px solid var(--color-accent)',
+                                color: 'var(--color-text-primary)',
+                                outline: 'none',
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {ALL_SCOPES.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          ) : (
+                            <button
+                              title="Click to change scope"
+                              onClick={(e) => { e.stopPropagation(); setEditingScopeId(item.id); }}
+                              className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded transition-colors"
+                              style={{
+                                background: 'var(--color-bg-input)',
+                                color: 'var(--color-text-muted)',
+                                border: '1px solid var(--color-border)',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--color-accent)';
+                                e.currentTarget.style.color = 'var(--color-accent)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--color-border)';
+                                e.currentTarget.style.color = 'var(--color-text-muted)';
+                              }}
+                            >
+                              {item.scope}
+                              <Pencil size={9} />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Qty + expand */}
+                        <div
+                          className="flex items-center gap-2 shrink-0"
+                          onClick={() => { setExpandedItemId(isExpanded ? null : item.id); setEditingScopeId(null); }}
+                        >
                           <div className="text-right">
                             <div className="text-sm font-bold" style={{ color: 'var(--color-accent)' }}>
                               {totalAllocated > 0 ? totalAllocated : item.qty}
@@ -510,6 +596,18 @@ export default function ImportStage2Page({ onComplete, onBack }: ImportStage2Pag
                           </div>
                           {isExpanded ? <ChevronUp size={14} style={{ color: 'var(--color-text-muted)' }} /> : <ChevronDown size={14} style={{ color: 'var(--color-text-muted)' }} />}
                         </div>
+
+                        {/* Delete button */}
+                        <button
+                          title="Delete item"
+                          onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-1 rounded"
+                          style={{ color: 'var(--color-text-muted)' }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-danger)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-muted)')}
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
 
                       {isExpanded && (
@@ -526,6 +624,101 @@ export default function ImportStage2Page({ onComplete, onBack }: ImportStage2Pag
               </div>
             </div>
           ))}
+
+          {/* ── Add Item Form ──────────────────────────────────────────────── */}
+          {showAddForm ? (
+            <div
+              className="rounded-xl p-4 flex flex-col gap-3"
+              style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-accent)' }}
+            >
+              <p className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Add Item Manually</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'product', placeholder: 'Product description *', span: 2 },
+                  { key: 'brand', placeholder: 'Brand / Make', span: 1 },
+                  { key: 'modelNumber', placeholder: 'Model number', span: 1 },
+                ].map(({ key, placeholder, span }) => (
+                  <input
+                    key={key}
+                    type="text"
+                    placeholder={placeholder}
+                    value={addForm[key as keyof typeof addForm]}
+                    onChange={(e) => setAddForm((f) => ({ ...f, [key]: e.target.value }))}
+                    className="rounded-lg px-3 py-2 text-sm"
+                    style={{
+                      gridColumn: `span ${span}`,
+                      background: 'var(--color-bg-input)',
+                      border: '1px solid var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                      outline: 'none',
+                    }}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
+                  />
+                ))}
+                <input
+                  type="number"
+                  placeholder="Qty"
+                  min={1}
+                  value={addForm.qty}
+                  onChange={(e) => setAddForm((f) => ({ ...f, qty: e.target.value }))}
+                  className="rounded-lg px-3 py-2 text-sm"
+                  style={{
+                    background: 'var(--color-bg-input)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                    outline: 'none',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
+                />
+                <select
+                  value={addForm.scope}
+                  onChange={(e) => setAddForm((f) => ({ ...f, scope: e.target.value as ScopeName }))}
+                  className="rounded-lg px-3 py-2 text-sm"
+                  style={{
+                    background: 'var(--color-bg-input)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                    outline: 'none',
+                  }}
+                >
+                  {ALL_SCOPES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowAddForm(false)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{ background: 'var(--color-bg-input)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddItem}
+                  disabled={!addForm.product.trim()}
+                  className="px-4 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{
+                    background: addForm.product.trim() ? 'var(--color-accent)' : 'var(--color-bg-input)',
+                    color: addForm.product.trim() ? '#fff' : 'var(--color-text-muted)',
+                  }}
+                >
+                  Add Item
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm transition-colors self-start"
+              style={{ color: 'var(--color-text-muted)', border: '1px dashed var(--color-border)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-accent)'; e.currentTarget.style.borderColor = 'var(--color-accent)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-muted)'; e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+            >
+              <Plus size={14} />
+              Add Item Manually
+            </button>
+          )}
         </main>
 
         {/* ── RIGHT: DWG Summary ───────────────────────────────────────────── */}

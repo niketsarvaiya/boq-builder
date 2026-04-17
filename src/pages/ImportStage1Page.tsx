@@ -102,41 +102,44 @@ async function parsePRExcel(file: File): Promise<ParsedPRItem[]> {
 
         const items: ParsedPRItem[] = [];
         let currentScope: ScopeName = 'General';
+        const productIdx = colMap.product ?? 1;
 
         for (let i = headerRowIdx + 1; i < rows.length; i++) {
           const row = rows[i];
           if (!row || row.every((c) => !c || String(c).trim() === '')) continue;
 
-          const firstCell = String(row[0] ?? '').trim();
-          const qtyCell = colMap.qty !== undefined ? String(row[colMap.qty] ?? '').trim() : '';
-          const hasQty = qtyCell !== '' && !isNaN(Number(qtyCell)) && Number(qtyCell) > 0;
-          const otherCells = row.slice(1);
-          const hasOtherContent = otherCells.some((c) => c && String(c).trim() !== '');
+          const srNoRaw = String(row[0] ?? '').trim();
+          // Stop at grand-total summary row
+          if (/^total$/i.test(srNoRaw)) break;
 
-          // Section header: col A has text, no qty, no other meaningful content
-          if (firstCell && !hasQty && !hasOtherContent) {
-            currentScope = mapSectionToScope(firstCell);
+          const productRaw = String(row[productIdx] ?? '').trim();
+          const brandRaw = colMap.brand !== undefined ? String(row[colMap.brand] ?? '').trim() : '';
+          const modelRaw = colMap.modelNumber !== undefined ? String(row[colMap.modelNumber] ?? '').trim() : '';
+          const qtyRaw = colMap.qty !== undefined ? String(row[colMap.qty] ?? '').trim() : '';
+          const hasQty = qtyRaw !== '' && !isNaN(Number(qtyRaw)) && Number(qtyRaw) > 0;
+
+          // Section header: no sr_no, has section name, no brand/model/qty, no pricing values
+          const hasPricing = [5, 6, 7].some((idx) => {
+            const v = String(row[idx] ?? '').trim();
+            return v !== '' && !isNaN(Number(v)) && Number(v) !== 0;
+          });
+          if (!srNoRaw && productRaw && !brandRaw && !modelRaw && !hasQty && !hasPricing) {
+            currentScope = mapSectionToScope(productRaw);
             continue;
           }
 
-          const productIdx = colMap.product ?? 0;
-          const product = String(row[productIdx] ?? '').trim();
-          if (!product) continue;
-
-          const qty = hasQty ? Number(qtyCell) : 1;
+          // Line items must have a numeric serial number
+          if (!srNoRaw || isNaN(Number(srNoRaw))) continue;
+          if (!productRaw) continue;
 
           items.push({
             id: generateId(),
-            product,
-            brand: colMap.brand !== undefined ? String(row[colMap.brand] ?? '').trim() : '',
-            modelNumber:
-              colMap.modelNumber !== undefined
-                ? String(row[colMap.modelNumber] ?? '').trim()
-                : '',
-            qty,
+            product: productRaw,
+            brand: brandRaw,
+            modelNumber: modelRaw,
+            qty: hasQty ? Number(qtyRaw) : 1,
             scope: currentScope,
-            notes:
-              colMap.notes !== undefined ? String(row[colMap.notes] ?? '').trim() : '',
+            notes: colMap.notes !== undefined ? String(row[colMap.notes] ?? '').trim() : '',
             rawRow: i,
             roomAllocations: [],
           });
@@ -209,17 +212,32 @@ async function parseDrawingFile(file: File): Promise<ParsedDWGData> {
         const avSet = new Set<string>();
 
         for (const raw of strings) {
+          // ── Century Gothic bold → Room names ─────────────────────────────
+          if (raw.includes('Century Gothic') && raw.includes('b1')) {
+            const cgMatch = raw.match(/\{\\fCentury Gothic\|b1[^;]*;([^}]+)\}/);
+            if (cgMatch) {
+              let text = cgMatch[1]
+                .replace(/\\P/g, ' ')
+                .replace(/\\pi[\d.]+;/g, '')
+                .replace(/\\H[\d.]+x?;/g, '')
+                .replace(/\\C\d+;/g, '')
+                .replace(/[{}@]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+              // Filter out non-room Century Gothic annotations
+              if (
+                text.length > 2 &&
+                !/CANCELLED|CANCELED|SENSOR|DISTRIBUTION\s*BOARD|SHIFTED|FAN\s*DIA|55[""]/i.test(text)
+              ) {
+                rooms.add(text);
+              }
+            }
+          }
+
           const cleaned = cleanMText(raw);
           if (!cleaned) continue;
 
-          // Bold text entity (Century Gothic font marker in DWG MTEXT)
-          if (raw.includes('Century Gothic') && raw.includes('b1')) {
-            const parts = raw.split(';');
-            const text = cleanMText(parts[parts.length - 1]);
-            if (text.length > 2) rooms.add(text);
-          }
-
-          // ALL CAPS room keywords
+          // ── ALL CAPS room keywords (fallback) ─────────────────────────────
           if (cleaned.length > 4 && cleaned === cleaned.toUpperCase() && /^[A-Z\s]+$/.test(cleaned)) {
             const upper = cleaned.toUpperCase();
             if (ROOM_KEYWORDS.some((kw) => upper.includes(kw))) {
@@ -227,14 +245,35 @@ async function parseDrawingFile(file: File): Promise<ParsedDWGData> {
             }
           }
 
-          // Device block counts
+          // ── Times New Roman bold → Device block labels ────────────────────
+          if (raw.includes('Times New Roman') && raw.includes('b1')) {
+            const tnrMatch = raw.match(/\{\\fTimes New Roman\|b1[^;]*;([^}\\]+)\}/);
+            if (tnrMatch) {
+              const label = tnrMatch[1]
+                .replace(/\\C\d+;/g, '')
+                .replace(/\\c\d+;/g, '')
+                .replace(/[{}@]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+              if (
+                label.length >= 3 &&
+                label.length < 30 &&
+                !/alliance|automation|description|audio|video|security|wiring|client|device/i.test(label) &&
+                !/^[a-z\d]{1,2}$/i.test(label)
+              ) {
+                deviceCounts[label] = (deviceCounts[label] || 0) + 1;
+              }
+            }
+          }
+
+          // ── Legacy device pattern matching ────────────────────────────────
           for (const [pattern, category] of DEVICE_PATTERNS) {
             if (cleaned.toLowerCase().includes(pattern.toLowerCase())) {
               deviceCounts[category] = (deviceCounts[category] || 0) + 1;
             }
           }
 
-          // AV annotations
+          // ── AV annotations ────────────────────────────────────────────────
           const upper = cleaned.toUpperCase();
           if (AV_BRANDS.some((b) => upper.includes(b))) {
             avSet.add(cleaned);
