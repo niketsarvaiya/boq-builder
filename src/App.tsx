@@ -2,14 +2,21 @@ import { useState } from 'react';
 import ProjectsPage from './pages/ProjectsPage';
 import BOQPage from './pages/BOQPage';
 import SettingsPage from './pages/SettingsPage';
+import ImportStage1Page from './pages/ImportStage1Page';
+import ImportStage2Page from './pages/ImportStage2Page';
+import ImportStage3Page from './pages/ImportStage3Page';
 import { detectSyncRequest, sendSyncAndClose, sendAllAndClose } from './lib/syncExport';
 import { loadProjects } from './lib/storage';
 import { ThemeProvider } from './lib/theme';
 
+
 type View =
   | { page: 'projects' }
   | { page: 'boq'; projectId: string }
-  | { page: 'settings' };
+  | { page: 'settings' }
+  | { page: 'import-stage1' }
+  | { page: 'import-stage2' }
+  | { page: 'import-stage3'; projectId: string };
 
 export default function App() {
   const [syncState] = useState(() => detectSyncRequest());
@@ -153,11 +160,51 @@ export default function App() {
     );
   }
 
+  if (view.page === 'import-stage1') {
+    return (
+      <ThemeProvider>
+        <ImportStage1Page
+          onContinue={() => setView({ page: 'import-stage2' })}
+          onBack={() => setView({ page: 'projects' })}
+        />
+      </ThemeProvider>
+    );
+  }
+
+  if (view.page === 'import-stage2') {
+    return (
+      <ThemeProvider>
+        <ImportStage2Page
+          onComplete={(projectId) => setView({ page: 'import-stage3', projectId })}
+          onBack={() => setView({ page: 'import-stage1' })}
+        />
+      </ThemeProvider>
+    );
+  }
+
+  if (view.page === 'import-stage3') {
+    const projects = loadProjects();
+    const project = projects.find((p) => p.id === view.projectId);
+    if (!project) return <ThemeProvider><div style={{ padding: 40, color: '#fff' }}>Project not found. <button onClick={() => setView({ page: 'projects' })}>Go back</button></div></ThemeProvider>;
+    return (
+      <ThemeProvider>
+        <ImportStage3Page
+          projectId={project.id}
+          projectName={project.name}
+          lineItems={project.lineItems}
+          onOpenEditor={(id) => setView({ page: 'boq', projectId: id })}
+          onGoBack={() => setView({ page: 'import-stage2' })}
+        />
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider>
       <ProjectsPage
         onOpenProject={(id) => setView({ page: 'boq', projectId: id })}
         onOpenSettings={() => setView({ page: 'settings' })}
+        onStartImport={() => setView({ page: 'import-stage1' })}
       />
     </ThemeProvider>
   );

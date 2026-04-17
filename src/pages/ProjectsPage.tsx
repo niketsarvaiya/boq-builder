@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, FolderOpen, Trash2, MapPin, User, Clock, Layers, Settings } from 'lucide-react';
+import { Plus, FolderOpen, Trash2, MapPin, User, Clock, Layers, Settings, Upload } from 'lucide-react';
 import type { Project } from '../types/index';
 import { loadProjects, saveProject, deleteProject } from '../lib/storage';
 import { createDefaultLineItems } from '../lib/defaultProducts';
@@ -10,6 +10,7 @@ import { ThemeToggle } from '../components/ui/ThemeToggle';
 interface ProjectsPageProps {
   onOpenProject: (id: string) => void;
   onOpenSettings: () => void;
+  onStartImport: () => void;
 }
 
 interface NewProjectForm {
@@ -33,7 +34,7 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
-export default function ProjectsPage({ onOpenProject, onOpenSettings }: ProjectsPageProps) {
+export default function ProjectsPage({ onOpenProject, onOpenSettings, onStartImport }: ProjectsPageProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState<NewProjectForm>(EMPTY_FORM);
@@ -140,6 +141,26 @@ export default function ProjectsPage({ onOpenProject, onOpenSettings }: Projects
               }}
             >
               <Settings size={16} />
+            </button>
+            <button
+              onClick={onStartImport}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              style={{
+                background: 'var(--color-bg-input)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-secondary)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-accent)';
+                e.currentTarget.style.color = 'var(--color-accent)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-border)';
+                e.currentTarget.style.color = 'var(--color-text-secondary)';
+              }}
+            >
+              <Upload size={15} />
+              Import from PR + Drawing
             </button>
             <button
               onClick={() => setShowNew(true)}
