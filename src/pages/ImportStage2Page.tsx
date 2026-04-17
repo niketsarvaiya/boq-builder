@@ -16,6 +16,97 @@ const ALL_SCOPES: ScopeName[] = [
   'Sensors', 'General',
 ];
 
+// ── Auto-Allocation Engine ────────────────────────────────────────────────────
+
+type RoomType = 'bedroom' | 'bathroom' | 'living' | 'kitchen' | 'entry' | 'corridor' | 'outdoor' | 'staff' | 'storage' | 'other';
+
+function getRoomType(name: string): RoomType {
+  const n = name.toLowerCase();
+  if (/bedroom/.test(n)) return 'bedroom';
+  if (/bathroom|washroom|powder|shower|toilet/.test(n)) return 'bathroom';
+  if (/living|lounge|drawing|family/.test(n)) return 'living';
+  if (/kitchen|dining/.test(n)) return 'kitchen';
+  if (/entrance|foyer|main.*door|entry/.test(n) && !/staff/.test(n)) return 'entry';
+  if (/(lobby|corridor|passage|staircase)/.test(n) && !/staff/.test(n)) return 'corridor';
+  if (/balcony|terrace|outdoor/.test(n)) return 'outdoor';
+  if (/staff|servant|laundry/.test(n)) return 'staff';
+  if (/store|storage|utility/.test(n)) return 'storage';
+  return 'other';
+}
+
+// Weights per room type for each device category
+const ALLOC_WEIGHTS: Record<string, Partial<Record<RoomType, number>>> = {
+  keypad:  { bedroom:2, living:3, kitchen:2, entry:2, corridor:1, bathroom:0, outdoor:0, staff:0, storage:0, other:1 },
+  camera:  { bedroom:0, living:0, kitchen:0, entry:3, corridor:2, bathroom:0, outdoor:2, staff:1, storage:0, other:0 },
+  ap:      { bedroom:1, living:2, kitchen:1, entry:0, corridor:0, bathroom:0, outdoor:0, staff:0, storage:0, other:0 },
+  sensor:  { bedroom:1, living:2, kitchen:1, entry:1, corridor:1, bathroom:0, outdoor:0, staff:0, storage:0, other:0 },
+  speaker: { bedroom:1, living:2, kitchen:1, entry:0, corridor:0, bathroom:0, outdoor:1, staff:0, storage:0, other:0 },
+  tv:      { bedroom:1, living:2, kitchen:0, entry:0, corridor:0, bathroom:0, outdoor:0, staff:0, storage:0, other:0 },
+};
+
+function getAllocCategory(item: ParsedPRItem): string | null {
+  const prod = item.product.toLowerCase();
+  const scope = item.scope;
+  if (scope === 'Front End' && /keypad|panel|button/i.test(prod)) return 'keypad';
+  if (scope === 'Front End') return 'keypad'; // all Front End items
+  if (scope === 'Integrated Security' && /camera/i.test(prod)) return 'camera';
+  if (scope === 'Networking' && /access.?point|wi.?fi|gwn7/i.test(prod)) return 'ap';
+  if (scope === 'Sensors') return 'sensor';
+  if (scope === 'AV' && /speaker|in.*wall|ceiling.*sp/i.test(prod)) return 'speaker';
+  if (scope === 'AV' && /\btv\b|display|television/i.test(prod)) return 'tv';
+  return null;
+}
+
+function distributeQty(
+  rooms: { id: string; name: string }[],
+  weights: Partial<Record<RoomType, number>>,
+  totalQty: number,
+): { roomId: string; qty: number }[] {
+  const weighted = rooms
+    .map((r) => ({ ...r, w: weights[getRoomType(r.name)] ?? 0 }))
+    .filter((r) => r.w > 0);
+
+  if (!weighted.length || totalQty === 0) return [];
+
+  const totalWeight = weighted.reduce((s, r) => s + r.w, 0);
+
+  // Initial floor allocation
+  const allocs = weighted.map((r) => ({
+    roomId: r.id,
+    qty: Math.floor((r.w / totalWeight) * totalQty),
+  }));
+
+  // Distribute remainder to highest-weight rooms
+  let rem = totalQty - allocs.reduce((s, a) => s + a.qty, 0);
+  const sortedIdx = weighted
+    .map((_, i) => i)
+    .sort((a, b) => weighted[b].w - weighted[a].w);
+
+  for (let j = 0; rem > 0; j++, rem--) {
+    allocs[sortedIdx[j % sortedIdx.length]].qty += 1;
+  }
+
+  return allocs.filter((a) => a.qty > 0);
+}
+
+function autoAllocate(
+  items: ParsedPRItem[],
+  rooms: { id: string; name: string }[],
+): { items: ParsedPRItem[]; count: number } {
+  let count = 0;
+  const result = items.map((item) => {
+    if (item.roomAllocations.length > 0) return item; // already has manual allocations
+    const cat = getAllocCategory(item);
+    if (!cat) return item;
+    const weights = ALLOC_WEIGHTS[cat];
+    if (!weights) return item;
+    const allocs = distributeQty(rooms, weights, item.qty);
+    if (allocs.length > 0) { count++; return { ...item, roomAllocations: allocs }; }
+    return item;
+  });
+  return { items: result, count };
+}
+
 interface ImportStage2PageProps {
   onComplete: (projectId: string) => void;
   onBack: () => void;
@@ -196,6 +287,7 @@ export default function ImportStage2Page({ onComplete, onBack }: ImportStage2Pag
   const [editingScopeId, setEditingScopeId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState({ product: '', brand: '', modelNumber: '', qty: '1', scope: 'General' as ScopeName });
+  const [autoFilledCount, setAutoFilledCount] = useState<number | null>(null);
 
   useEffect(() => {
     try {
@@ -203,12 +295,19 @@ export default function ImportStage2Page({ onComplete, onBack }: ImportStage2Pag
       if (!raw) return;
       const d: ImportDraft = JSON.parse(raw);
       setDraft(d);
-      setPrItems(d.prItems);
       setDwgData(d.dwgData);
+
       // Seed rooms from DWG extraction
-      setRooms(
-        d.dwgData.rooms.map((name, i) => ({ id: `room-${i}-${generateId()}`, name })),
-      );
+      const seededRooms = d.dwgData.rooms.map((name, i) => ({
+        id: `room-${i}-${generateId()}`,
+        name,
+      }));
+      setRooms(seededRooms);
+
+      // Auto-allocate items to rooms based on room type heuristics
+      const { items: filled, count } = autoAllocate(d.prItems, seededRooms);
+      setPrItems(filled);
+      if (count > 0) setAutoFilledCount(count);
     } catch { /* ignore */ }
   }, []);
 
@@ -482,6 +581,27 @@ export default function ImportStage2Page({ onComplete, onBack }: ImportStage2Pag
             </p>
           </div>
 
+          {autoFilledCount !== null && (
+            <div
+              className="flex items-center justify-between rounded-xl px-4 py-3"
+              style={{ background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.2)' }}
+            >
+              <div className="flex items-center gap-2">
+                <span style={{ fontSize: '15px' }}>✨</span>
+                <p className="text-xs" style={{ color: 'var(--color-accent)' }}>
+                  <strong>{autoFilledCount} items</strong> pre-allocated based on room types — review and adjust as needed.
+                </p>
+              </div>
+              <button
+                onClick={() => setAutoFilledCount(null)}
+                className="text-xs ml-4 shrink-0"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {Object.entries(scopeGroups).map(([scope, items]) => (
             <div key={scope}>
               {/* Scope header */}
@@ -587,11 +707,20 @@ export default function ImportStage2Page({ onComplete, onBack }: ImportStage2Pag
                           onClick={() => { setExpandedItemId(isExpanded ? null : item.id); setEditingScopeId(null); }}
                         >
                           <div className="text-right">
-                            <div className="text-sm font-bold" style={{ color: 'var(--color-accent)' }}>
-                              {totalAllocated > 0 ? totalAllocated : item.qty}
+                            <div className="flex items-center justify-end gap-1.5">
+                              <div className="text-sm font-bold" style={{ color: totalAllocated > 0 ? 'var(--color-accent)' : 'var(--color-text-muted)' }}>
+                                {totalAllocated > 0 ? totalAllocated : item.qty}
+                              </div>
+                              {totalAllocated > 0 && (
+                                <div
+                                  title="Rooms pre-filled"
+                                  className="w-1.5 h-1.5 rounded-full"
+                                  style={{ background: 'var(--color-accent)', opacity: 0.7 }}
+                                />
+                              )}
                             </div>
                             <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                              {totalAllocated > 0 ? `/${item.qty}` : 'qty'}
+                              {totalAllocated > 0 ? `/ ${item.qty} qty` : 'unallocated'}
                             </div>
                           </div>
                           {isExpanded ? <ChevronUp size={14} style={{ color: 'var(--color-text-muted)' }} /> : <ChevronDown size={14} style={{ color: 'var(--color-text-muted)' }} />}
